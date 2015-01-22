@@ -7,6 +7,7 @@ import java.util.UUID;
 import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
 import android.app.Activity;
+import android.content.ContentResolver;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
@@ -219,8 +220,9 @@ public class CrimeFragment extends Fragment {
 			@Override
 			public void onClick(View v) {
 				Intent i = new Intent(Intent.ACTION_PICK,
-						ContactsContract.Contacts.CONTENT_URI);
+						ContactsContract.CommonDataKinds.Phone.CONTENT_URI);
 				startActivityForResult(i, REQUEST_CONTACT);
+
 
 			}
 		});
@@ -231,17 +233,18 @@ public class CrimeFragment extends Fragment {
 			@Override
 			public void onClick(View v) {
 			
-				String number = "";
-				Uri call = Uri.parse("tel:" + number);             
-				Intent i = new Intent(Intent.ACTION_DIAL, call); 
-				startActivity(i);
+				String number = mCrime.getSuspectNumber();
+                Uri call = Uri.parse("tel:" + number);
+                Intent i = new Intent(Intent.ACTION_DIAL,call);
+                startActivity(i);
 				
 			}
 		});
 		
 
-		if (mCrime.getSuspect() != null) {
+		if (mCrime.getSuspect() != null && mCrime.getSuspectNumber() != null) {
 			mSuspectButton.setText(mCrime.getSuspect());
+			mSuspectButton.setText(mCrime.getSuspectNumber());
 		}
 
 		return v;
@@ -285,31 +288,32 @@ public class CrimeFragment extends Fragment {
 				mCrime.setPhoto(p);
 				showPhoto();
 			}
-		} else if (requestCode == REQUEST_CONTACT) {
+		}else if (requestCode == REQUEST_CONTACT) {
 			Uri contactUri = data.getData();
-			// Specify which field you want your query to return value for.
-			String[] queryFields = new String[] { ContactsContract.Contacts.DISPLAY_NAME };
-			// perform your query - the contactUri is like a "where" clause
-			// here.
-			Cursor c = getActivity().getContentResolver().query(contactUri,
-					queryFields, null, null, null);
-
-			// Double check that you actually got results
-			if (c.getCount() == 0) {
-				c.close();
-				return;
-			}
-
-			// Pull out the first column of the first row of data that is your
-			// suspect's name
-			c.moveToFirst();
-			String suspect = c.getString(0);
-			mCrime.setSuspect(suspect);
-			mSuspectButton.setText(suspect);
-			c.close();
+			getContact(contactUri);
 		}
 		
 	}// End onActivityResult
+	
+	
+	private void getContact(Uri contactUri){
+		ContentResolver cr = getActivity().getContentResolver();
+		Cursor phones = cr.query(contactUri, null,null,null, null);
+		//
+		if (phones.getCount() == 0) {
+			phones.close();
+			return;
+		}
+	
+		phones.moveToFirst();
+		String suspect = phones.getString(phones.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME));
+		String phoneNumber = phones.getString(phones.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER));
+		mCrime.setSuspect(suspect);
+		mCrime.setSuspectNumber(phoneNumber);
+		mSuspectButton.setText(suspect);
+		mSuspectDialButton.setText("Call: " + phoneNumber);
+		phones.close();
+	}
 
 	private void showPhoto() {
 		// (Re)set the image button's image based on our photo
